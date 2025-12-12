@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17.0.2"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.sincronizador.controller.MainController">
+
+    <!-- Título topo -->
+    <top>
+        <Label text="📦 Gerenciador de Imagens - Pronta Entrega"
+               style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 10;" />
+    </top>
+
+    <!-- Conteúdo central com tabela -->
+    <center>
+        <VBox spacing="10" padding="10">
+            <TableView fx:id="tabelaProdutos" prefHeight="400" prefWidth="700">
+
+                <columns>
+                    <TableColumn fx:id="colModelo" text="Modelo" prefWidth="160"/>
+                    <TableColumn fx:id="colClube" text="Clube" prefWidth="120"/>
+                    <TableColumn fx:id="colTipo" text="Tipo" prefWidth="100"/>
+                    <TableColumn fx:id="colTamanho" text="Tamanho" prefWidth="90"/>
+                    <TableColumn fx:id="colStatus" text="Status" prefWidth="150"/>
+                </columns>
+
+            </TableView>
+        </VBox>
+    </center>
+
+    <!-- Rodapé com botões -->
+    <bottom>
+        <HBox spacing="10" padding="10">
+            <Button fx:id="btnEscolherImagem"
+                    text="📁 Associar Imagem"
+                    onAction="#escolherImagem"
+                    style="-fx-font-size: 14px; -fx-font-weight: bold;" />
+
+            <Button text="☁ Sincronizar com Drive (em breve)"
+                    disable="true"
+                    style="-fx-font-size: 14px;" />
+        </HBox>
+    </bottom>
+
+</BorderPane>
