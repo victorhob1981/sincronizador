@@ -1,72 +1,136 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <modelVersion>4.0.0</modelVersion>
+  <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.sincronizador</groupId>
-    <artifactId>sincronizador</artifactId>
-    <version>1.0-SNAPSHOT</version>
+  <groupId>com.sincronizador</groupId>
+  <artifactId>sincronizador</artifactId>
+  <version>1.0-SNAPSHOT</version>
 
-    <properties>
-        <maven.compiler.source>24</maven.compiler.source>
-        <maven.compiler.target>24</maven.compiler.target>
-    </properties>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
 
-    <dependencies>
-<!-- MySQL connector -->
+    <!-- versões “pinned” (evita conflito/transitive surprises) -->
+    <mysql.version>8.1.0</mysql.version>
+    <drive.version>v3-rev20230815-2.0.0</drive.version>
+    <google.api.client.version>2.2.0</google.api.client.version>
+    <google.auth.version>1.23.0</google.auth.version>
+    <google.http.jackson2.version>1.43.3</google.http.jackson2.version>
+    <javafx.version>21.0.4</javafx.version>
+    <logback.version>1.5.12</logback.version>
+    <commons-io.version>2.16.1</commons-io.version>
+  </properties>
+
+  <dependencies>
+
+  <!-- OAuth helpers (AuthorizationCodeInstalledApp) -->
 <dependency>
-  <groupId>mysql</groupId>
-  <artifactId>mysql-connector-java</artifactId>
-  <version>8.1.0</version>
+  <groupId>com.google.oauth-client</groupId>
+  <artifactId>google-oauth-client-java6</artifactId>
+  <version>1.34.1</version>
 </dependency>
 
-<!-- Google Drive API -->
-<dependency>
-  <groupId>com.google.api-client</groupId>
-  <artifactId>google-api-client</artifactId>
-  <version>2.2.0</version>
-</dependency>
+<!-- OAuth local server (LocalServerReceiver) -->
 <dependency>
   <groupId>com.google.oauth-client</groupId>
   <artifactId>google-oauth-client-jetty</artifactId>
   <version>1.34.1</version>
 </dependency>
-<dependency>
-  <groupId>com.google.apis</groupId>
-  <artifactId>google-api-services-drive</artifactId>
-  <version>v3-rev20230815-2.0.0</version>
-</dependency>
-
-<!-- Commons IO -->
-<dependency>
-  <groupId>commons-io</groupId>
-  <artifactId>commons-io</artifactId>
-  <version>2.16.1</version>
-</dependency>
-
-<!-- Logging -->
-<dependency>
-  <groupId>ch.qos.logback</groupId>
-  <artifactId>logback-classic</artifactId>
-  <version>1.5.12</version>
-</dependency>
 
 
-        <!-- Logging SLF4J + Logback -->
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.5.12</version>
-        </dependency>
+    <!-- MySQL -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>${mysql.version}</version>
+    </dependency>
 
-        <!-- Commons IO para manipulação de arquivos -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.16.1</version>
-        </dependency>
-    </dependencies>
+    <!-- Google Drive API -->
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-drive</artifactId>
+      <version>${drive.version}</version>
+    </dependency>
+
+    <!-- Google API Client -->
+    <dependency>
+      <groupId>com.google.api-client</groupId>
+      <artifactId>google-api-client</artifactId>
+      <version>${google.api.client.version}</version>
+    </dependency>
+
+    <!-- Google Auth (GoogleCredentials + HttpCredentialsAdapter) -->
+    <dependency>
+      <groupId>com.google.auth</groupId>
+      <artifactId>google-auth-library-oauth2-http</artifactId>
+      <version>${google.auth.version}</version>
+    </dependency>
+
+    <!-- Jackson factory usado pelo Google HTTP client -->
+    <dependency>
+      <groupId>com.google.http-client</groupId>
+      <artifactId>google-http-client-jackson2</artifactId>
+      <version>${google.http.jackson2.version}</version>
+    </dependency>
+
+    <!-- JavaFX (porque seu projeto tem view/fxml/resources) -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-fxml</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
+    <!-- Commons IO (você já usava; pode ser útil para arquivos/imagens) -->
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons-io.version}</version>
+    </dependency>
+
+    <!-- Logging -->
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>${logback.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+
+      <!-- Compilador -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>17</release>
+        </configuration>
+      </plugin>
+
+      <!-- JavaFX: se você for rodar UI via Maven -->
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <!-- Se seu main for App.java, mantenha assim -->
+          <mainClass>com.sincronizador.App</mainClass>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
 
 </project>
