@@ -16,4 +16,10 @@ public interface CatalogoWriter {
     void vincularSku(String fileId, SKU sku);
 
     void remover(String fileId);
+
+    /**
+     * Atualiza/garante a metadata técnica (tamanhos de fábrica) no arquivo do Drive.
+     * Retorna true se realmente precisou alterar algo, false se já estava igual.
+     */
+    boolean atualizarTamanhosFabrica(String fileId, Disponibilidade disponibilidade);
 }

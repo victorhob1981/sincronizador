@@ -1,7 +1,10 @@
 package com.sincronizador.infrastructure.erp;
 
 import com.sincronizador.application.port.EstoqueReader;
-import com.sincronizador.domain.model.*;
+import com.sincronizador.domain.model.Disponibilidade;
+import com.sincronizador.domain.model.Estoque;
+import com.sincronizador.domain.model.Produto;
+import com.sincronizador.domain.model.SKU;
 import com.sincronizador.domain.valueobject.Tamanho;
 import com.sincronizador.domain.valueobject.Tipo;
 
@@ -14,15 +17,16 @@ import java.util.*;
 public class ErpEstoqueReader implements EstoqueReader {
 
     // TODO (final): mover pra config/env, não deixar senha no código
-    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/gemini_teste";
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/gemini_erp";
     private static final String JDBC_USER = "root";
     private static final String JDBC_PASSWORD = "Senhalp3";
 
-    // ✅ SEM filtro > 0 (pra não “sumir” SKU zerado)
+    // ✅ Plano A: só traz o que está em estoque (> 0)
     private static final String SQL_ESTOQUE = """
-        SELECT Clube, Modelo, Tipo, Tamanho, QuantidadeEstoque
-        FROM produtos
-    """;
+                SELECT Clube, Modelo, Tipo, Tamanho, QuantidadeEstoque
+                FROM produtos
+                WHERE QuantidadeEstoque > 0
+            """;
 
     @Override
     public List<Disponibilidade> obterDisponibilidades() {
@@ -30,8 +34,8 @@ public class ErpEstoqueReader implements EstoqueReader {
         Map<SKU, Map<Tamanho, Integer>> estoqueAgrupado = new HashMap<>();
 
         try (Connection connection = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
-             PreparedStatement stmt = connection.prepareStatement(SQL_ESTOQUE);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = connection.prepareStatement(SQL_ESTOQUE);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
 
@@ -43,6 +47,10 @@ public class ErpEstoqueReader implements EstoqueReader {
 
                 int quantidade = rs.getInt("QuantidadeEstoque");
 
+                // ✅ Redundante (porque já filtrou na query), mas deixa blindado
+                if (quantidade <= 0)
+                    continue;
+
                 if (clube == null || modelo == null || tipo == null || tamanho == null) {
                     continue;
                 }
@@ -53,7 +61,7 @@ public class ErpEstoqueReader implements EstoqueReader {
                 Map<Tamanho, Integer> porTamanho = estoqueAgrupado
                         .computeIfAbsent(sku, k -> new EnumMap<>(Tamanho.class));
 
-                // ✅ soma caso exista linha duplicada por tamanho
+                // soma caso exista linha duplicada por tamanho
                 porTamanho.merge(tamanho, quantidade, Integer::sum);
             }
 
@@ -63,19 +71,23 @@ public class ErpEstoqueReader implements EstoqueReader {
 
         List<Disponibilidade> disponibilidades = new ArrayList<>();
 
-        // ✅ NÃO filtrar por “estaDisponivel”
-        // Precisamos devolver também os SKUs zerados para não deletar do Drive por engano.
         for (Map.Entry<SKU, Map<Tamanho, Integer>> entry : estoqueAgrupado.entrySet()) {
             Estoque estoque = new Estoque(entry.getKey(), entry.getValue());
             Disponibilidade disponibilidade = Disponibilidade.aPartirDoEstoque(estoque);
-            disponibilidades.add(disponibilidade);
+
+            // ✅ Com a query >0 isso já vem sempre com tamanhos,
+            // mas deixo a blindagem para nunca devolver SKU “vazio”
+            if (disponibilidade != null && disponibilidade.estaDisponivel()) {
+                disponibilidades.add(disponibilidade);
+            }
         }
 
         return disponibilidades;
     }
 
     private Tipo mapearTipo(String tipoBanco) {
-        if (tipoBanco == null) return null;
+        if (tipoBanco == null)
+            return null;
 
         String v = tipoBanco.trim().toLowerCase(Locale.ROOT);
 
@@ -88,12 +100,14 @@ public class ErpEstoqueReader implements EstoqueReader {
     }
 
     private Tamanho mapearTamanho(String tamanhoBanco) {
-        if (tamanhoBanco == null) return null;
+        if (tamanhoBanco == null)
+            return null;
 
         String valor = tamanhoBanco.trim().toUpperCase(Locale.ROOT);
 
         try {
-            if (valor.matches("\\d+")) {
+
+            if (!valor.isEmpty() && Character.isDigit(valor.charAt(0))) {
                 return Tamanho.valueOf("_" + valor);
             }
             return Tamanho.valueOf(valor);

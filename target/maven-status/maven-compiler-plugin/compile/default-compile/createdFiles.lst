@@ -1,11 +1,14 @@
 com\sincronizador\config\AppConfig.class
 com\sincronizador\infrastructure\drive\DriveCatalogoWriter.class
 com\sincronizador\infrastructure\drive\DriveCatalogoMetadataWriter.class
+com\sincronizador\interfaces\controller\MainController$4.class
+com\sincronizador\interfaces\controller\MainController$6.class
 com\sincronizador\application\port\CatalogoReader.class
 com\sincronizador\interfaces\controller\MainController$1.class
 com\sincronizador\infrastructure\drive\DriveMetadataKeys.class
 com\sincronizador\domain\service\ComparadorDeTamanhos.class
 com\sincronizador\domain\model\Disponibilidade.class
+com\sincronizador\infrastructure\util\Md5Utils.class
 com\sincronizador\domain\service\ComparadorDeCatalogo.class
 com\sincronizador\domain\model\AcaoDeSincronizacao$Tipo.class
 com\sincronizador\application\usecase\GerarStatusDoCatalogoUseCase.class
@@ -16,8 +19,11 @@ com\sincronizador\domain\model\Produto.class
 com\sincronizador\domain\valueobject\Tamanho.class
 com\sincronizador\application\port\CatalogoMetadataWriter.class
 com\sincronizador\application\dto\ResultadoSincronizacaoDTO.class
+com\sincronizador\interfaces\controller\MainController$3.class
 com\sincronizador\interfaces\controller\MainController.class
+com\sincronizador\application\usecase\SincronizarCatalogoUseCase$ProgressoCallback.class
 com\sincronizador\domain\model\PlanoDeSincronizacao.class
+com\sincronizador\infrastructure\local\PropertiesImagemRepository.class
 com\sincronizador\application\usecase\VincularArquivoDriveAoSkuUseCase.class
 com\sincronizador\domain\model\AcaoDeSincronizacao.class
 com\sincronizador\application\usecase\AssociarImagemAoCatalogoUseCase.class
@@ -26,7 +32,10 @@ com\sincronizador\application\dto\EstadoProdutoCatalogo.class
 com\sincronizador\domain\service\GeradorDeLegenda.class
 com\sincronizador\application\dto\ProdutoCatalogoStatusDTO.class
 com\sincronizador\application\port\EstoqueReader.class
+com\sincronizador\interfaces\controller\MainController$5.class
 com\sincronizador\application\port\CatalogoWriter.class
+com\sincronizador\application\port\ImagemRepository.class
+com\sincronizador\interfaces\controller\MainController$2.class
 com\sincronizador\domain\valueobject\Tipo.class
 com\sincronizador\infrastructure\erp\ErpEstoqueReader.class
 com\sincronizador\domain\model\ResultadoComparacaoTamanhos.class

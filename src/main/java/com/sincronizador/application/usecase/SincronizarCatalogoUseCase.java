@@ -4,6 +4,7 @@ import com.sincronizador.application.dto.ResultadoSincronizacaoDTO;
 import com.sincronizador.application.port.CatalogoReader;
 import com.sincronizador.application.port.CatalogoWriter;
 import com.sincronizador.application.port.EstoqueReader;
+import com.sincronizador.application.port.ImagemRepository;
 import com.sincronizador.domain.model.Disponibilidade;
 import com.sincronizador.domain.model.ItemDeCatalogo;
 import com.sincronizador.domain.model.ResultadoComparacaoTamanhos;
@@ -11,64 +12,97 @@ import com.sincronizador.domain.model.SKU;
 import com.sincronizador.domain.service.ComparadorDeTamanhos;
 import com.sincronizador.domain.service.GeradorDeLegenda;
 
+import java.io.File;
 import java.util.*;
 
 public class SincronizarCatalogoUseCase {
 
+    @FunctionalInterface
+    public interface ProgressoCallback {
+        /**
+         * @param atual   1..total
+         * @param total   total de itens processados na execução
+         * @param mensagem mensagem humana do passo atual
+         */
+        void onProgresso(int atual, int total, String mensagem);
+    }
+
     private final EstoqueReader estoqueReader;
     private final CatalogoReader catalogoReader;
     private final CatalogoWriter catalogoWriter;
+    private final ImagemRepository imagemRepository;
 
     public SincronizarCatalogoUseCase(
             EstoqueReader estoqueReader,
             CatalogoReader catalogoReader,
-            CatalogoWriter catalogoWriter
+            CatalogoWriter catalogoWriter,
+            ImagemRepository imagemRepository
     ) {
-        this.estoqueReader = estoqueReader;
-        this.catalogoReader = catalogoReader;
-        this.catalogoWriter = catalogoWriter;
+        this.estoqueReader = Objects.requireNonNull(estoqueReader);
+        this.catalogoReader = Objects.requireNonNull(catalogoReader);
+        this.catalogoWriter = Objects.requireNonNull(catalogoWriter);
+        this.imagemRepository = Objects.requireNonNull(imagemRepository);
     }
 
     public ResultadoSincronizacaoDTO executar() {
+        return executar(null);
+    }
 
-        List<Disponibilidade> disponibilidadesERP = estoqueReader.obterDisponibilidades();
+    public ResultadoSincronizacaoDTO executar(ProgressoCallback progresso) {
+
+        List<Disponibilidade> estoque = estoqueReader.obterDisponibilidades();
         List<ItemDeCatalogo> itensCatalogo = catalogoReader.obterItens();
 
         Map<SKU, Disponibilidade> erpPorSku = new HashMap<>();
-        for (Disponibilidade d : disponibilidadesERP) {
+        for (Disponibilidade d : estoque) {
             if (d != null && d.getSku() != null) {
                 erpPorSku.put(d.getSku(), d);
             }
         }
 
-        Map<SKU, ItemDeCatalogo> catalogoPorSku = new HashMap<>();
+        Map<SKU, ItemDeCatalogo> drivePorSku = new HashMap<>();
         for (ItemDeCatalogo i : itensCatalogo) {
             if (i != null && i.getSku() != null) {
-                catalogoPorSku.put(i.getSku(), i);
+                drivePorSku.put(i.getSku(), i);
             }
         }
 
+        int criados = 0;
         int atualizados = 0;
         int removidos = 0;
-        int pendentesCriacaoSemImagem = 0;
+        int pendentesSemImagemLocal = 0;
         List<String> erros = new ArrayList<>();
 
-        // Comparador (instância: compila tanto se o método for static quanto se for não-static)
         ComparadorDeTamanhos comparador = new ComparadorDeTamanhos();
 
-        // 1) REMOVER: arquivo no Drive cujo SKU não existe mais no ERP
+        // --- prepara total para progresso ---
+        int removiveis = 0;
+        for (ItemDeCatalogo item : itensCatalogo) {
+            if (item == null || item.getSku() == null) continue;
+            SKU sku = item.getSku();
+            if (ehPlaceholderCatalogo(sku)) continue;
+            if (!erpPorSku.containsKey(sku)) removiveis++;
+        }
+
+        List<Map.Entry<SKU, Disponibilidade>> erpEntries = new ArrayList<>(erpPorSku.entrySet());
+        erpEntries.sort(Comparator.comparing(e -> safeSkuKey(e.getKey())));
+
+        int total = removiveis + erpEntries.size();
+        int atual = 0;
+
+        // 1) REMOVER do Drive o que não existe mais no ERP
         for (ItemDeCatalogo item : itensCatalogo) {
             if (item == null || item.getSku() == null) continue;
 
             SKU sku = item.getSku();
 
-            // Segurança: se estiver usando "CATALOGO" como placeholder, não remove automaticamente
-            // (evita apagar itens antigos/manuais sem identidade ainda)
-            if (ehPlaceholderCatalogo(sku)) {
-                continue;
-            }
+            // segurança p/ não apagar “arquivos velhos/sem identidade”
+            if (ehPlaceholderCatalogo(sku)) continue;
 
             if (!erpPorSku.containsKey(sku)) {
+                atual++;
+                report(progresso, atual, total, "Removendo do Drive: " + sku);
+
                 try {
                     catalogoWriter.remover(item.getIdExterno());
                     removidos++;
@@ -78,39 +112,90 @@ public class SincronizarCatalogoUseCase {
             }
         }
 
-        // 2) ATUALIZAR: quando existe no ERP e no Drive, mas tamanhos diferem
-        for (Map.Entry<SKU, Disponibilidade> entry : erpPorSku.entrySet()) {
+        // 2) CRIAR/ATUALIZAR no Drive baseado no ERP + imagem LOCAL
+        for (Map.Entry<SKU, Disponibilidade> entry : erpEntries) {
             SKU sku = entry.getKey();
-            Disponibilidade erp = entry.getValue();
+            Disponibilidade dispErp = entry.getValue();
 
-            ItemDeCatalogo cat = catalogoPorSku.get(sku);
+            atual++;
+            report(progresso, atual, total, "Processando: " + sku + " (" + atual + "/" + total + ")");
 
-            // não existe arquivo no Drive pra esse SKU -> pendente (sem imagem)
-            if (cat == null) {
-                pendentesCriacaoSemImagem++;
+            Optional<File> imgOpt = imagemRepository.obterImagem(sku);
+            if (imgOpt.isEmpty()) {
+                pendentesSemImagemLocal++;
                 continue;
             }
 
-            // compara tamanhos
-            ResultadoComparacaoTamanhos comparacao = comparador.comparar(erp, cat);
+            File imgLocal = imgOpt.get();
+            ItemDeCatalogo itemDrive = drivePorSku.get(sku);
 
-            if (comparacao != ResultadoComparacaoTamanhos.IGUAIS) {
-                String legendaCorreta = GeradorDeLegenda.gerarLegenda(erp);
+            String legenda = GeradorDeLegenda.gerarLegenda(dispErp);
 
+            // Se não existe no Drive, cria
+            if (itemDrive == null) {
+                report(progresso, atual, total, "Criando no Drive: " + sku + " (" + atual + "/" + total + ")");
                 try {
-                    catalogoWriter.atualizarLegenda(cat.getIdExterno(), legendaCorreta);
-
-                    // mantém identidade via metadata (idempotente)
-                    catalogoWriter.vincularSku(cat.getIdExterno(), sku);
-
-                    atualizados++;
+                    catalogoWriter.criarComImagemLocal(sku, dispErp, imgLocal);
+                    criados++;
                 } catch (Exception e) {
-                    erros.add("ATUALIZAR " + sku + " -> " + resumirErro(e));
+                    erros.add("CRIAR " + sku + " -> " + resumirErro(e));
                 }
+                continue;
             }
+
+            boolean mudouAlgo = false;
+
+            // ✅ 2.1) Garantir que a metadata técnica (tamanhos de fábrica) esteja atualizada no Drive
+            // Isso é a “migração automática” escolhida: na próxima sync, os arquivos existentes passam a ter
+            // sku_tamanhos_fabrica e o Reader para de depender do nome (idade) para INFANTIL.
+            try {
+                report(progresso, atual, total, "Atualizando metadados: " + sku + " (" + atual + "/" + total + ")");
+                boolean metaMudou = catalogoWriter.atualizarTamanhosFabrica(itemDrive.getIdExterno(), dispErp);
+                if (metaMudou) mudouAlgo = true;
+            } catch (Exception e) {
+                erros.add("METADATA " + sku + " -> " + resumirErro(e));
+            }
+
+            // Atualiza tamanhos/legenda se precisar
+            try {
+                ResultadoComparacaoTamanhos comp = comparador.comparar(dispErp, itemDrive);
+                if (comp != ResultadoComparacaoTamanhos.IGUAIS) {
+                    report(progresso, atual, total, "Atualizando legenda: " + sku + " (" + atual + "/" + total + ")");
+                    catalogoWriter.atualizarLegenda(itemDrive.getIdExterno(), legenda);
+                    mudouAlgo = true;
+                }
+            } catch (Exception e) {
+                erros.add("LEGENDA " + sku + " -> " + resumirErro(e));
+            }
+
+            // Atualiza imagem SOMENTE se de fato for diferente (o Writer fará o "no-op" se igual)
+            try {
+                report(progresso, atual, total, "Validando imagem: " + sku + " (" + atual + "/" + total + ")");
+                catalogoWriter.trocarImagem(itemDrive.getIdExterno(), imgLocal);
+
+                // Se a imagem for igual, o writer otimizado não faz update.
+                // Aqui não temos retorno pra saber se mudou. Mantemos o comportamento atual:
+                // - tentamos publicar a imagem, e consideramos o item "atualizado" no aggregate da execução.
+                // Obs.: a melhora futura seria o writer retornar boolean (mudou/não mudou).
+                mudouAlgo = true;
+            } catch (Exception e) {
+                erros.add("IMAGEM " + sku + " -> " + resumirErro(e));
+            }
+
+            if (mudouAlgo) atualizados++;
         }
 
-        return new ResultadoSincronizacaoDTO(atualizados, removidos, pendentesCriacaoSemImagem, erros);
+        report(progresso, total, total, "Concluído (" + total + "/" + total + ")");
+        return new ResultadoSincronizacaoDTO(criados, atualizados, removidos, pendentesSemImagemLocal, erros);
+    }
+
+    private void report(ProgressoCallback cb, int atual, int total, String msg) {
+        if (cb == null) return;
+        try {
+            cb.onProgresso(atual, Math.max(total, 1), msg == null ? "" : msg);
+        } catch (Exception ignored) {
+            // progresso nunca pode quebrar a sincronização
+        }
     }
 
     private boolean ehPlaceholderCatalogo(SKU sku) {
@@ -127,5 +212,17 @@ public class SincronizarCatalogoUseCase {
         if (msg == null || msg.isBlank()) return e.getClass().getSimpleName();
         msg = msg.replace("\n", " ").replace("\r", " ").trim();
         return msg.length() > 180 ? msg.substring(0, 180) + "..." : msg;
+    }
+
+    private String safeSkuKey(SKU sku) {
+        if (sku == null) return "";
+        try {
+            String clube = sku.getClube() == null ? "" : sku.getClube().trim();
+            String modelo = sku.getModelo() == null ? "" : sku.getModelo().trim();
+            String tipo = (sku.getTipo() == null) ? "" : sku.getTipo().name();
+            return (clube + "|" + modelo + "|" + tipo).toUpperCase(Locale.ROOT);
+        } catch (Exception e) {
+            return String.valueOf(sku).toUpperCase(Locale.ROOT);
+        }
     }
 }

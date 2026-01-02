@@ -6,6 +6,7 @@ C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincron
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\port\CatalogoReader.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\port\CatalogoWriter.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\port\EstoqueReader.java
+C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\port\ImagemRepository.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\usecase\AssociarImagemAoCatalogoUseCase.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\usecase\GerarStatusDoCatalogoUseCase.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\application\usecase\SincronizarCatalogoUseCase.java
@@ -31,4 +32,6 @@ C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincron
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\infrastructure\drive\DriveCatalogoWriter.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\infrastructure\drive\DriveMetadataKeys.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\infrastructure\erp\ErpEstoqueReader.java
+C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\infrastructure\local\PropertiesImagemRepository.java
+C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\infrastructure\util\Md5Utils.java
 C:\Users\Vitinho\Desktop\sincronizadorv2\sincronizador\src\main\java\com\sincronizador\interfaces\controller\MainController.java

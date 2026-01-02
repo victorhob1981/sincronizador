@@ -40,26 +40,36 @@ public class App extends Application {
             var catalogoReader = new DriveCatalogoReader(drive, folderId);
             var catalogoWriter = new DriveCatalogoWriter(drive, folderId);
 
-            // 4) Use cases (regras de aplicação)
-            var gerarStatus = new GerarStatusDoCatalogoUseCase(estoqueReader, catalogoReader);
-            var sincronizar = new SincronizarCatalogoUseCase(estoqueReader, catalogoReader, catalogoWriter);
-            var associarImagem = new AssociarImagemAoCatalogoUseCase(estoqueReader, catalogoReader, catalogoWriter);
+            // 4) Repositório local de imagem (associação permanente)
+            var imagemRepo = new com.sincronizador.infrastructure.local.PropertiesImagemRepository();
 
-            // 5) UI (FXML + Controller)
+            // 5) Use cases (regras de aplicação)
+            // ✅ aqui é estoqueReader + catalogoReader (não imagemRepo)
+            var gerarStatus = new GerarStatusDoCatalogoUseCase(estoqueReader, catalogoReader);
+
+            // ✅ sincronização precisa de ERP + Drive + repo local
+            var sincronizar = new SincronizarCatalogoUseCase(estoqueReader, catalogoReader, catalogoWriter, imagemRepo);
+
+            // ✅ associar imagem salva localmente (não publica no drive diretamente)
+            var associarImagem = new AssociarImagemAoCatalogoUseCase(imagemRepo);
+
+            // 6) UI (FXML + Controller)
             FXMLLoader loader = new FXMLLoader(getClass().getResource(FXML_MAIN_VIEW));
             Parent root = loader.load();
 
             MainController controller = loader.getController();
 
             // Ordem de injeção:
-            // - Primeiro injeta o que não deve disparar refresh automático
             controller.setSincronizarCatalogoUseCase(sincronizar);
             controller.setAssociarImagemUseCase(associarImagem);
 
-            // - Por último, injeta o use case que normalmente é usado pra carregar/atualizar a tabela
+            // ✅ NOVO: injeta o repo de imagens pro painel lateral (preview)
+            controller.setImagemRepository(imagemRepo);
+
+            // Por último, injeta o use case que carrega a tabela
             controller.setGerarStatusUseCase(gerarStatus);
 
-            // 6) Stage
+            // 7) Stage
             stage.setTitle("Sincronizador de Catálogo");
             stage.setScene(new Scene(root));
             stage.show();
@@ -77,7 +87,7 @@ public class App extends Application {
             if (in == null) {
                 throw new IllegalStateException(
                         "Arquivo " + PROPERTIES_PATH + " não encontrado. " +
-                        "Crie em src/main/resources/app.properties e defina " + KEY_FOLDER_ID + "."
+                                "Crie em src/main/resources/app.properties e defina " + KEY_FOLDER_ID + "."
                 );
             }
             props.load(in);

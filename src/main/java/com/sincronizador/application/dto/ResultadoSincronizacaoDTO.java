@@ -5,21 +5,39 @@ import java.util.List;
 
 public class ResultadoSincronizacaoDTO {
 
+    private final int criados;
     private final int atualizados;
     private final int removidos;
     private final int pendentesCriacaoSemImagem;
     private final List<String> erros;
 
+    // Construtor novo (com criados)
+    public ResultadoSincronizacaoDTO(
+            int criados,
+            int atualizados,
+            int removidos,
+            int pendentesCriacaoSemImagem,
+            List<String> erros
+    ) {
+        this.criados = criados;
+        this.atualizados = atualizados;
+        this.removidos = removidos;
+        this.pendentesCriacaoSemImagem = pendentesCriacaoSemImagem;
+        this.erros = (erros == null) ? List.of() : erros;
+    }
+
+    // Construtor antigo (mantém compatibilidade)
     public ResultadoSincronizacaoDTO(
             int atualizados,
             int removidos,
             int pendentesCriacaoSemImagem,
             List<String> erros
     ) {
-        this.atualizados = atualizados;
-        this.removidos = removidos;
-        this.pendentesCriacaoSemImagem = pendentesCriacaoSemImagem;
-        this.erros = (erros == null) ? List.of() : List.copyOf(erros);
+        this(0, atualizados, removidos, pendentesCriacaoSemImagem, erros);
+    }
+
+    public int getCriados() {
+        return criados;
     }
 
     public int getAtualizados() {
@@ -30,12 +48,7 @@ public class ResultadoSincronizacaoDTO {
         return removidos;
     }
 
-    // getter "bonito"
-    public int getPendentesCriacaoSemImagem() {
-        return pendentesCriacaoSemImagem;
-    }
-
-    // getter EXATO que seu MainController está chamando (Semimagem)
+    // mantém o getter “do jeitinho” que seu controller já chamava
     public int getPendentesCriacaoSemimagem() {
         return pendentesCriacaoSemImagem;
     }
